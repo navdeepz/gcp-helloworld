@@ -1,0 +1,17 @@
+replicaCount: 1
+
+image:
+  repository: your-docker-repo/webapp
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 80
+
+env:
+  DB_HOST: ""
+  DB_NAME: "webapp_db"
+  DB_USER: ""
+  DB_PASSWORD: ""
+  REDIS_HOST: ""

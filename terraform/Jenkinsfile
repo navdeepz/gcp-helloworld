@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+
+    environment {
+        GOOGLE_CREDENTIALS = credentials('gcp-service-account')
+        PROJECT_ID = '<gcp-project-id>'
+        REGION = 'us-central1'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/navdeepz/gcp-helloworld.git'
+            }
+        }
+        stage('Setup Terraform') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform --version'
+                    sh 'terraform init \
+                        -backend-config="project=${PROJECT_ID}" \
+                        -backend-config="bucket=nav-test-terraform-state-buckett" \
+                        -backend-config="prefix=terraform/state"'
+                }
+            }
+        }
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform') {
+                    sh 'terraform apply -auto-approve -var="project_id=$PROJECT_ID" -var="region=$REGION"'
+                }
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}

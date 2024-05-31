@@ -1,0 +1,18 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+exporters:
+  google_cloud:
+    project: <gcp-project-id>
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [google_cloud]
+    metrics:
+      receivers: [otlp]
+      exporters: [google_cloud]

@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+
+    environment {
+        GOOGLE_CREDENTIALS = credentials('gcp-service-account')
+        PROJECT_ID = '<gcp-project-id>'
+        REGION = 'us-central1'
+        CLUSTER_NAME = 'nav-test-cluster'
+        IMAGE_REPO_NAME = 'gcr.io/${PROJECT_ID}/webapp'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/navdeepz/gcp-helloworld.git'
+            }
+        }
+        stage('Prepare Environment') {
+            steps {
+                dir('webapp') {
+                    // Authenticate with Google Cloud
+                    sh '''
+                        echo $GOOGLE_CREDENTIALS > ${WORKSPACE}/gcloud-key.json
+                        gcloud auth activate-service-account --key-file=${WORKSPACE}/gcloud-key.json
+                        gcloud config set project $PROJECT_ID
+                        CLOUDSDK_CORE_DISABLE_PROMPTS=1  gcloud components install gke-gcloud-auth-plugin 
+                        gcloud container clusters get-credentials $CLUSTER_NAME --region $REGION
+                    '''
+                }
+            }
+        }
+        stage('Retrieve Terraform Outputs') {
+            steps {
+                dir('terraform') {
+                    // Configure Terraform to use GCS backend for state retrieval
+                    sh '''
+                        terraform init \
+                        -backend-config="project=${PROJECT_ID}" \
+                        -backend-config="nav-test-terraform-state-buckett" \
+                        -backend-config="prefix=terraform/state"
+                    '''
+                    // Retrieve Terraform outputs
+                    script {
+                        def terraformOutputs = sh(script: "terraform output -json", returnStdout: true).trim()
+                        def jsonSlurper = new JsonSlurper()
+                        def outputs = jsonSlurper.parseText(terraformOutputs)
+
+                        env.DB_HOST = outputs.postgres_host.value
+                        env.REDIS_HOST = outputs.redis_host.value
+                        env.DB_USER = outputs.db_user.value
+                        env.DB_PASSWORD = outputs.db_password.value
+                        env.DB_NAME = outputs.db_name.value
+                    }
+                }
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                dir('webapp') {
+                    // Build Docker image
+                    script {
+                        def image = docker.build("${IMAGE_REPO_NAME}:latest")
+                        docker.withRegistry('https://gcr.io', 'gcr:google-credentials') {
+                            image.push('latest')
+                        }
+                    }
+                }
+            }
+        }
+        stage('Deploy to Kubernetes') {
+            steps {
+                dir('webapp') {
+                    // Deploy to Kubernetes using Helm
+                    sh """
+                    helm upgrade --install webapp ./helm \
+                    --set image.repository=${IMAGE_REPO_NAME} \
+                    --set image.tag=latest \
+                    --set env.DB_HOST=${env.DB_HOST} \
+                    --set env.DB_USER=${env.DB_USER} \
+                    --set env.DB_NAME=${env.DB_NAME} \
+                    --set env.DB_PASSWORD=${env.DB_PASSWORD} \
+                    --set env.REDIS_HOST=${env.REDIS_HOST}
+                    """
+                }
+            }
+        }
+        stage('Test Deployment') {
+            steps {
+                dir('webapp') {
+                    script {
+                        // Check if the deployment was successful
+                        def deploymentStatus = sh(script: "kubectl rollout status deployment/webapp", returnStdout: true).trim()
+                        echo "Deployment Status: ${deploymentStatus}"
+                        
+                        def podStatus = sh(script: "kubectl get pods -l app=webapp -o jsonpath='{.items[*].status.phase}'", returnStdout: true).trim()
+                        echo "Pod Status: ${podStatus}"
+                        
+                        // Fail the pipeline job if the pods are not running
+                        if (!podStatus.contains('Running')) {
+                            error "Deployment failed: not all pods are running"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
