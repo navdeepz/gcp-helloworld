@@ -50,4 +50,19 @@ Add Kubernetes cluster configuration (kubeconfig) as a secret file.
 gsutil mb -p <gcp-project-id> gs://nav-test-terraform-state-bucket
 ```
 
+
+**Create a tfvars file in the /terraform direcrtory to pass values**
+
+terraform.tfvars
+```
+# Project Configuration
+project_id = "gcp-project-id"
+region     = "us-central1" 
+
+# GKE Cluster Configuration
+cluster_name           = "nav-test-cluster"
+max_node_count         = 2
+
+```
+
 **Monitoring not implemented yet**
