@@ -7,25 +7,29 @@ On the Kubernetes side, the project uses Helm for Kubernetes package management,
 
 ```
 # gcp-helloworld/
-├── terraform/
+├── README.md
+├── monitoring
+│   └── config.yaml
+├── terraform
+│   ├── Jenkinsfile
 │   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── provider.tf
-├── webapp/
-│   ├── app.py
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── helm/
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       ├── templates/
-│           ├── deployment.yaml
-│           ├── service.yaml
-│           ├── configmap.yaml
-│           └── secret.yaml
-└── monitoring/
-    └── opentelemetry_config.yaml
+│   ├── output.tf
+│   ├── providers.tf
+│   └── variables.tf
+└── webapp
+    ├── Dockerfile
+    ├── Jenkinsfile
+    ├── helm
+    │   ├── Chart.yaml
+    │   ├── templates
+    │   │   ├── configmap.yaml
+    │   │   ├── deployment.yaml
+    │   │   ├── secret.yaml
+    │   │   └── service.yaml
+    │   └── values.yaml
+    └── src
+        ├── app.py
+        └── requirements.txt
 ```
 
 **Initialize Database**
