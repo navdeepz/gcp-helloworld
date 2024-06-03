@@ -1,0 +1,33 @@
+graph TD
+    subgraph Users/Clients
+        A[Users]
+    end
+
+    subgraph GCP[Google Cloud Platform - GCP]
+        LB[External Load Balancer]
+
+        
+        subgraph VPC[VPC Network]
+            subgraph PublicSubnet[Public Subnet]
+                Redis[Google Cloud Memorystore]
+                Monitoring[Cloud Monitoring & OpenTelemetry ]
+
+            end
+            subgraph PrivateSubnet[Private Subnet]
+                subgraph GKE[Google Kubernetes Engine - GKE ]
+                    Ingress[Ingress]
+                    Pod[Web Application Pod]
+                end
+                PostgreSQL[Google Cloud SQL - PostgreSQL ]
+            end
+        end
+
+        Ingress --- Pod
+        Pod --- Redis
+        Pod --- PostgreSQL
+        Pod --- Monitoring
+    end
+
+    A --> LB
+    LB --> Ingress
+
