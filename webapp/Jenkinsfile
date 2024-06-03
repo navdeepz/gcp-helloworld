@@ -7,7 +7,11 @@ pipeline {
         REGION = 'us-central1'
         CLUSTER_NAME = 'nav-test-cluster'
         IMAGE_REPO_NAME = 'gcr.io/${PROJECT_ID}/webapp'
-    }
+        IMAGE_NAME = 'webapp'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        REGISTRY = 'gcr.io'
+        
+    }docker.build("${env.REGISTRY}/${env.REPO}/${env.IMAGE_NAME}:${env.IMAGE_TAG}")
 
     stages {
         stage('Checkout') {
@@ -59,9 +63,10 @@ pipeline {
                 dir('webapp') {
                     // Build Docker image
                     script {
-                        def image = docker.build("${IMAGE_REPO_NAME}:latest")
-                        docker.withRegistry('https://gcr.io', 'gcr:google-credentials') {
-                            image.push('latest')
+                        docker.build("${env.REGISTRY}/${env.REPO}/${env.IMAGE_NAME}:${env.IMAGE_TAG}")
+
+                        docker.withRegistry("https://${env.REGISTRY}", 'gcr:google-credentials') {
+                            docker.image("${env.REGISTRY}/${env.REPO}/${env.IMAGE_NAME}:${env.IMAGE_TAG}").push()
                         }
                     }
                 }
@@ -73,8 +78,8 @@ pipeline {
                     // Deploy to Kubernetes using Helm
                     sh """
                     helm upgrade --install webapp ./helm \
-                    --set image.repository=${IMAGE_REPO_NAME} \
-                    --set image.tag=latest \
+                    --set image.repository=${env.IMAGE_REPO_NAME} \
+                    --set image.tag=${env.IMAGE_TAG} \
                     --set env.DB_HOST=${env.DB_HOST} \
                     --set env.DB_USER=${env.DB_USER} \
                     --set env.DB_NAME=${env.DB_NAME} \
@@ -88,6 +93,8 @@ pipeline {
             steps {
                 dir('webapp') {
                     script {
+                        // Giving time for pods to come up
+                        sleep 20 
                         // Check if the deployment was successful
                         def deploymentStatus = sh(script: "kubectl rollout status deployment/webapp", returnStdout: true).trim()
                         echo "Deployment Status: ${deploymentStatus}"
