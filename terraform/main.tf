@@ -100,7 +100,7 @@ resource "google_compute_firewall" "allow-http" {
 
 
 resource "google_sql_database_instance" "postgres_instance" {
-  name             = "postgres-instance"
+  name             = "webapp-postgres-instance"
   database_version = "POSTGRES_14"
   region           = var.region
   # deletion_protection = true
