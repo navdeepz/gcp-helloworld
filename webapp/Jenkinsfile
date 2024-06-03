@@ -10,13 +10,14 @@ pipeline {
         IMAGE_NAME = 'webapp'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         REGISTRY = 'gcr.io'
+        GIT_REPO = 'https://github.com/navdeepz/gcp-helloworld.git'
         
-    }docker.build("${env.REGISTRY}/${env.REPO}/${env.IMAGE_NAME}:${env.IMAGE_TAG}")
+    }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/navdeepz/gcp-helloworld.git'
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: ${GIT_REPO}]]])
             }
         }
         stage('Prepare Environment') {
@@ -36,12 +37,8 @@ pipeline {
         stage('Retrieve Terraform Outputs') {
             steps {
                 dir('terraform') {
-                    // Configure Terraform to use GCS backend for state retrieval
                     sh '''
-                        terraform init \
-                        -backend-config="project=${PROJECT_ID}" \
-                        -backend-config="nav-test-terraform-state-buckett" \
-                        -backend-config="prefix=terraform/state"
+                        terraform init
                     '''
                     // Retrieve Terraform outputs
                     script {
@@ -78,7 +75,7 @@ pipeline {
                     // Deploy to Kubernetes using Helm
                     sh """
                     helm upgrade --install webapp ./helm \
-                    --set image.repository=${env.IMAGE_REPO_NAME} \
+                    --set image.repository="${env.IMAGE_REPO_NAME}/${IMAGE_NAME}" \
                     --set image.tag=${env.IMAGE_TAG} \
                     --set env.DB_HOST=${env.DB_HOST} \
                     --set env.DB_USER=${env.DB_USER} \
