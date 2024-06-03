@@ -34,4 +34,5 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-*plan.out
+**plan.out
+**lock.*
